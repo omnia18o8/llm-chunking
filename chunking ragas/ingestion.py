@@ -41,3 +41,4 @@ def load_documents(base_dir):
                 except:
                     continue
     return md_texts
+
