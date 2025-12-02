@@ -1,5 +1,4 @@
 import numpy as np
-import json
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import CrossEncoder
 from langchain_community.retrievers import BM25Retriever
@@ -9,14 +8,18 @@ from dotenv import load_dotenv
 load_dotenv()
 
 client_vo = vo.Client(api_key=os.getenv("VOYAGE_API_KEY")) 
+embedding_model = "voyage-3-large"
 
-embedding_model = "voyage-context-3"
+top_k = 10
+a = 0.6 
+lambda_parameter = 0.7 
+dedupe_threshold = 0.92
 
-# Instantiate reranker globally
+
 reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 
 
-def dedupe_chunks(chunks, embeddings, threshold=0.92):
+def dedupe_chunks(chunks, embeddings, threshold=dedupe_threshold):
     embeddings = np.array(embeddings, dtype=np.float32)
     embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
 
@@ -40,7 +43,8 @@ def dedupe_chunks(chunks, embeddings, threshold=0.92):
     return [chunks[i] for i in keep_idx], keep_vecs
 
 
-def mmr(query_embedding, doc_embeddings, lambda_param=0.5, top_k=3):
+
+def mmr(query_embedding, doc_embeddings, lambda_param=lambda_parameter, top_k=top_k):
     query_sim = cosine_similarity([query_embedding], doc_embeddings)[0]
     doc_sim = cosine_similarity(doc_embeddings)
 
@@ -59,19 +63,20 @@ def mmr(query_embedding, doc_embeddings, lambda_param=0.5, top_k=3):
 
     return selected
 
-def embed_query(text: str):
-    return client_vo.contextualized_embed( #for large its just embed and for large 3 its contextualized_embed
-        inputs = [[text]], #for context add inputs = [[text]], for large 3 its just text
-        model=embedding_model,
-        input_type="query"
-    ).results[0].embeddings[0] # for large 3 its just .embedding[0] and for context its .results[0].embeddings[0]
 
 # def embed_query(text: str):
-#     return client_vo.embed( #for large its just embed and for large 3 its contextualized_embed
-#         text, #for context add inputs = [[text]], for large 3 its just text
+#     return client_vo.contextualized_embed( 
+#         inputs = [[text]], 
 #         model=embedding_model,
 #         input_type="query"
-#     ).embeddings[0] # for large 3 its just .embedding[0] and for context its .results[0].embeddings[0]
+#     ).results[0].embeddings[0] 
+
+def embed_query(text: str):
+    return client_vo.embed( #for large its just embed and for large 3 its contextualized_embed
+        text, #for context add inputs = [[text]], for large 3 its just text
+        model=embedding_model,
+        input_type="query"
+    ).embeddings[0] # for large 3 its just .embedding[0] and for context its .results[0].embeddings[0]
 
 
 
@@ -101,10 +106,7 @@ Answer:
 """
 
 
-def rag(
-    query, bm25, chunk_embeddings, chunk_texts, embed_query,
-    alpha=0.5, lambda_param=0.5, top_k=3
-):
+def rag(query, bm25, chunk_embeddings, chunk_texts, embed_query, alpha=a, lambda_param=lambda_parameter, top_k=top_k):
     q = embed_query(query)
     q = q / np.linalg.norm(q)
     chunk_norms = chunk_embeddings / np.linalg.norm(chunk_embeddings, axis=1, keepdims=True)
@@ -139,7 +141,7 @@ def rag(
 def response_llm(
     questions, client, chat_model,
     chunk_embeddings, chunk_texts,
-    embed_query, k=3, alpha=0.6, lambda_param=0.7
+    embed_query, k=top_k, alpha=a, lambda_param=lambda_parameter
 ):
     bm25 = build_bm25(chunk_texts)
     llm_answers = []

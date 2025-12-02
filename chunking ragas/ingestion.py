@@ -1,7 +1,3 @@
-""" Document Ingestion Stage 
-%pip install pymupdf4llm docx2txt python-pptx """
-# ingestion.py
-
 import os
 import docx2txt
 import pymupdf4llm

@@ -4,9 +4,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from openai import OpenAI
-client = OpenAI()  # It auto-loads from env
+client = OpenAI() 
 
-chat_model = "gpt-3.5-turbo"
+chat_model = "gpt-5-nano"
 
 import os
 from ingestion import load_documents
@@ -83,7 +83,7 @@ for i, chunk in enumerate(all_chunks, start=1):
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4.1-mini",
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
         )
